@@ -24,7 +24,7 @@ body {
 
 /* 🖤 TEXT → BLACK (MAIN FIX) */
 h1, h2, h3, h4, h5, h6, p, label, div, span {
-    color: black !important;
+    color: white !important;
 }
 
 /* 🌿 Sidebar */
