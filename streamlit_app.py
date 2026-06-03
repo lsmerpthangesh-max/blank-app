@@ -174,7 +174,9 @@ if not st.session_state.login:
 # -----------------------
 # HEADER
 # -----------------------
-st.markdown("<h1 style='text-align:center;text-color:yellow;'>Lingam Super Market Asset Management System</h1>", unsafe_allow_html=True)
+st.markdown(
+    "<h1 style='text-align:center; color:yellow;'>Lingam Super Market Asset Management System</h1>",
+    unsafe_allow_html=True)
 
 menu = st.sidebar.selectbox("Menu", [
     "Dashboard",
