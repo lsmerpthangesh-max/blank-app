@@ -539,8 +539,8 @@ if menu == "📊 Dashboard":
 
     section("Filter Assets by Purchase Date")
     d1, d2 = st.columns(2)
-    f_start = d1.date_input("From", value=date(2020, 1, 1))
-    f_end   = d2.date_input("To",   value=date.today())
+    f_start = d1.date_input("From", value=date(2020, 1, 1), key="dash_from")
+    f_end   = d2.date_input("To",   value=date.today(),     key="dash_to")
     if not assets.empty:
         assets["purchase_date"] = pd.to_datetime(assets["purchase_date"], errors="coerce")
         filtered = assets[
@@ -568,16 +568,16 @@ elif menu == "📦 Assets":
 
         c1, c2 = st.columns(2)
         with c1:
-            a_name     = st.text_input("Asset Name *")
-            a_category = st.selectbox("Category *", ["— select —"] + cats)
-            a_location = st.text_input("Location / Department")
-            a_employee = st.selectbox("Assigned To *", ["— select —"] + emps)
+            a_name     = st.text_input("Asset Name *",                                    key="add_name")
+            a_category = st.selectbox("Category *", ["— select —"] + cats,               key="add_cat")
+            a_location = st.text_input("Location / Department",                           key="add_loc")
+            a_employee = st.selectbox("Assigned To *", ["— select —"] + emps,            key="add_emp")
         with c2:
-            a_qty      = st.number_input("Quantity", min_value=1, value=1)
-            a_purchase = st.date_input("Purchase Date", value=date.today())
-            a_cost     = st.number_input("Cost (₹)", min_value=0.0, step=100.0)
-            a_status   = st.selectbox("Status", ["Active","Damaged","In Repair","Disposed"])
-        a_notes = st.text_area("Notes / Remarks", height=80)
+            a_qty      = st.number_input("Quantity", min_value=1, value=1,                key="add_qty")
+            a_purchase = st.date_input("Purchase Date", value=date.today(),               key="add_purchase")
+            a_cost     = st.number_input("Cost (₹)", min_value=0.0, step=100.0,          key="add_cost")
+            a_status   = st.selectbox("Status", ["Active","Damaged","In Repair","Disposed"], key="add_status")
+        a_notes = st.text_area("Notes / Remarks", height=80,                              key="add_notes")
 
         if st.button("✅ Add Asset", use_container_width=True):
             if not a_name or a_category == "— select —" or a_employee == "— select —":
@@ -606,9 +606,9 @@ elif menu == "📦 Assets":
             cf1, cf2, cf3 = st.columns(3)
             cat_opts  = ["All"] + sorted(assets["category"].dropna().unique().tolist())
             stat_opts = ["All"] + sorted(assets["status"].dropna().unique().tolist())
-            f_cat  = cf1.selectbox("Category", cat_opts)
-            f_stat = cf2.selectbox("Status",   stat_opts)
-            f_srch = cf3.text_input("Search Name / ID")
+            f_cat  = cf1.selectbox("Category", cat_opts,  key="view_cat_filter")
+            f_stat = cf2.selectbox("Status",   stat_opts, key="view_stat_filter")
+            f_srch = cf3.text_input("Search Name / ID",   key="view_search")
 
             view = assets.copy()
             if f_cat  != "All": view = view[view["category"] == f_cat]
@@ -665,25 +665,28 @@ elif menu == "📦 Assets":
 
                 c1, c2 = st.columns(2)
                 with c1:
-                    e_name = st.text_input("Asset Name",  value=r["name"])
+                    e_name = st.text_input("Asset Name",  value=r["name"],          key="edit_name")
                     e_cat  = st.selectbox(
                         "Category", cats,
-                        index=cats.index(r["category"]) if r["category"] in cats else 0
+                        index=cats.index(r["category"]) if r["category"] in cats else 0,
+                        key="edit_cat"
                     )
-                    e_loc  = st.text_input("Location", value=r["location"] or "")
+                    e_loc  = st.text_input("Location", value=r["location"] or "",   key="edit_loc")
                     e_emp  = st.selectbox(
                         "Employee", emps,
-                        index=emps.index(r["employee"]) if r["employee"] in emps else 0
+                        index=emps.index(r["employee"]) if r["employee"] in emps else 0,
+                        key="edit_emp"
                     )
                 with c2:
-                    e_qty  = st.number_input("Quantity", min_value=1, value=int(r["quantity"]))
-                    e_cost = st.number_input("Cost (₹)", min_value=0.0, value=float(r["cost"]))
+                    e_qty  = st.number_input("Quantity", min_value=1, value=int(r["quantity"]),   key="edit_qty")
+                    e_cost = st.number_input("Cost (₹)", min_value=0.0, value=float(r["cost"]),   key="edit_cost")
                     s_opts = ["Active","Damaged","In Repair","Disposed"]
                     e_stat = st.selectbox(
                         "Status", s_opts,
-                        index=s_opts.index(r["status"]) if r["status"] in s_opts else 0
+                        index=s_opts.index(r["status"]) if r["status"] in s_opts else 0,
+                        key="edit_stat"
                     )
-                e_notes = st.text_area("Notes", value=r["notes"] or "")
+                e_notes = st.text_area("Notes", value=r["notes"] or "", key="edit_notes")
 
                 if st.button("💾 Save Changes", use_container_width=True):
                     run_query(
@@ -702,7 +705,7 @@ elif menu == "🏷️ Categories":
     tab_add, tab_view = st.tabs(["➕ Add", "📋 View & Delete"])
 
     with tab_add:
-        c_name = st.text_input("Category Name *")
+        c_name = st.text_input("Category Name *", key="cat_add_name")
         if st.button("✅ Add Category"):
             if c_name.strip():
                 run_query("INSERT OR IGNORE INTO categories (name) VALUES (?)", (c_name.strip(),))
@@ -717,7 +720,7 @@ elif menu == "🏷️ Categories":
         else:
             st.dataframe(df, use_container_width=True, hide_index=True)
             if ROLE in ["Admin","Manager"]:
-                del_cat = st.selectbox("Delete Category", ["— select —"] + df["name"].tolist())
+                del_cat = st.selectbox("Delete Category", ["— select —"] + df["name"].tolist(), key="cat_del_sel")
                 if del_cat != "— select —":
                     if st.button("🗑️ Delete Category"):
                         run_query("DELETE FROM categories WHERE name=?", (del_cat,))
@@ -732,8 +735,8 @@ elif menu == "👤 Employees":
     tab_add, tab_view = st.tabs(["➕ Add", "📋 View & Delete"])
 
     with tab_add:
-        e_name = st.text_input("Employee Name *")
-        e_role = st.selectbox("Role", ["Staff","Supervisor","Manager","Admin"])
+        e_name = st.text_input("Employee Name *",                                   key="emp_add_name")
+        e_role = st.selectbox("Role", ["Staff","Supervisor","Manager","Admin"],     key="emp_add_role")
         if st.button("✅ Add Employee"):
             if e_name.strip():
                 run_query("INSERT INTO employees (name, role) VALUES (?,?)", (e_name.strip(), e_role))
@@ -772,12 +775,12 @@ elif menu == "🔧 Maintenance":
             st.warning("No assets available. Add assets first.")
         else:
             id_opts = [f"{r['asset_id']} – {r['name']}" for _, r in ids.iterrows()]
-            sel     = st.selectbox("Asset *", ["— select —"] + id_opts)
+            sel     = st.selectbox("Asset *", ["— select —"] + id_opts, key="maint_asset_sel")
             c1, c2  = st.columns(2)
-            m_details = c1.text_area("Maintenance Details *", height=120)
-            m_cost    = c1.number_input("Cost (₹)", min_value=0.0, step=50.0)
-            m_vendor  = c2.text_input("Vendor / Technician")
-            m_date    = c2.date_input("Service Date", value=date.today())
+            m_details = c1.text_area("Maintenance Details *", height=120,       key="maint_details")
+            m_cost    = c1.number_input("Cost (₹)", min_value=0.0, step=50.0,  key="maint_cost")
+            m_vendor  = c2.text_input("Vendor / Technician",                   key="maint_vendor")
+            m_date    = c2.date_input("Service Date", value=date.today(),       key="maint_date")
 
             if st.button("✅ Save Maintenance Record"):
                 if sel == "— select —" or not m_details.strip():
@@ -806,7 +809,7 @@ elif menu == "🔧 Maintenance":
         if df.empty:
             st.info("No maintenance records yet.")
         else:
-            f_aid = st.text_input("Filter by Asset ID")
+            f_aid = st.text_input("Filter by Asset ID", key="maint_filter_aid")
             view  = df[df["asset_id"].str.contains(f_aid, case=False)] if f_aid else df
             st.dataframe(view, use_container_width=True, hide_index=True)
             st.markdown(f"**Total Maintenance Cost: ₹{df['cost'].sum():,.2f}**")
@@ -815,7 +818,8 @@ elif menu == "🔧 Maintenance":
                 section("Delete Maintenance Record")
                 del_mid = st.selectbox(
                     "Record ID",
-                    ["— select —"] + df["id"].astype(str).tolist()
+                    ["— select —"] + df["id"].astype(str).tolist(),
+                    key="maint_del_sel"
                 )
                 if del_mid != "— select —":
                     if st.button("🗑️ Delete Record"):
@@ -839,18 +843,19 @@ elif menu == "✅ Audit":
             st.warning("No assets to audit. Add assets first.")
         else:
             id_opts   = [f"{r['asset_id']} – {r['name']}" for _, r in assets.iterrows()]
-            a_sel     = st.selectbox("Asset *", ["— select —"] + id_opts)
+            a_sel     = st.selectbox("Asset *", ["— select —"] + id_opts,            key="audit_asset_sel")
             c1, c2    = st.columns(2)
-            a_month   = c1.selectbox("Month *", MONTHS, index=datetime.now().month - 1)
-            a_year    = c2.text_input("Year *", value=str(datetime.now().year))
+            a_month   = c1.selectbox("Month *", MONTHS, index=datetime.now().month - 1, key="audit_month")
+            a_year    = c2.text_input("Year *", value=str(datetime.now().year),        key="audit_year")
             a_status  = c1.selectbox(
                 "Audit Status *",
-                ["Pending","Verified OK","Missing","Damaged","Discrepancy"]
+                ["Pending","Verified OK","Missing","Damaged","Discrepancy"],
+                key="audit_status"
             )
             checker_opts = ["— select —"] + checkers if checkers else ["— No checkers yet —"]
-            a_checker = c2.selectbox("Checked By *", checker_opts)
-            a_remarks = st.text_area("Remarks / Notes", height=80)
-            a_date    = st.date_input("Audit Date", value=date.today())
+            a_checker = c2.selectbox("Checked By *", checker_opts,                    key="audit_checker")
+            a_remarks = st.text_area("Remarks / Notes", height=80,                    key="audit_remarks")
+            a_date    = st.date_input("Audit Date", value=date.today(),                key="audit_date")
 
             if st.button("✅ Save Audit Entry", use_container_width=True):
                 invalid_checker = a_checker in ["— select —","— No checkers yet —"]
@@ -882,10 +887,11 @@ elif menu == "✅ Audit":
             st.info("No audit entries yet.")
         else:
             cf1, cf2 = st.columns(2)
-            f_month  = cf1.selectbox("Filter Month",  ["All"] + MONTHS)
+            f_month  = cf1.selectbox("Filter Month",  ["All"] + MONTHS,              key="audit_f_month")
             f_status = cf2.selectbox(
                 "Filter Status",
-                ["All","Pending","Verified OK","Missing","Damaged","Discrepancy"]
+                ["All","Pending","Verified OK","Missing","Damaged","Discrepancy"],
+                key="audit_f_status"
             )
             view = df.copy()
             if f_month  != "All": view = view[view["month"]  == f_month]
@@ -900,7 +906,8 @@ elif menu == "✅ Audit":
                 section("Delete Audit Entry")
                 del_aid = st.selectbox(
                     "Audit Record ID",
-                    ["— select —"] + df["id"].astype(str).tolist()
+                    ["— select —"] + df["id"].astype(str).tolist(),
+                    key="audit_del_sel"
                 )
                 if del_aid != "— select —":
                     if st.button("🗑️ Delete Audit Entry"):
@@ -921,7 +928,7 @@ elif menu == "⚙️ Admin Panel":
 
     with tab_chk:
         section("Add Audit Checker")
-        chk_name = st.text_input("Checker Full Name *")
+        chk_name = st.text_input("Checker Full Name *", key="admin_chk_name")
         if st.button("✅ Add Checker"):
             if chk_name.strip():
                 run_query("INSERT OR IGNORE INTO audit_checkers (name) VALUES (?)", (chk_name.strip(),))
@@ -935,7 +942,7 @@ elif menu == "⚙️ Admin Panel":
             st.info("No checkers configured yet.")
         else:
             st.dataframe(df, use_container_width=True, hide_index=True)
-            del_c = st.selectbox("Remove Checker", ["— select —"] + df["name"].tolist())
+            del_c = st.selectbox("Remove Checker", ["— select —"] + df["name"].tolist(), key="admin_chk_del")
             if del_c != "— select —":
                 if st.button("🗑️ Remove Checker"):
                     run_query("DELETE FROM audit_checkers WHERE name=?", (del_c,))
