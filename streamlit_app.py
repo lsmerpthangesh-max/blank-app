@@ -23,12 +23,10 @@ body {
 }
 
 /* 🖤 TEXT → BLACK (MAIN FIX) */
-h2, h3, h4, h5, h6, p, label, div, span {
+h1, h2, h3, h4, h5, h6, p, label, div, span {
     color: black !important;
 }
-h1 {
-color: yellow !important;
-}
+
 
 /* 🌿 Sidebar */
 [data-testid="stSidebar"] {
