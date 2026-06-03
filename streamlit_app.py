@@ -3,6 +3,10 @@ import sqlite3
 import pandas as pd
 from datetime import datetime
 import os
+import barcode
+from barcode.writer import ImageWriter
+from reportlab.platypus import SimpleDocTemplate, Paragraph
+from reportlab.lib.styles import getSampleStyleSheet
 
 # -----------------------
 # CONFIG
@@ -10,39 +14,49 @@ import os
 st.set_page_config(page_title="Lingam Super Market", layout="wide")
 
 DB = "assets.db"
-ADMIN_PASSWORD = "admin123"   # 🔐 change this
+ADMIN_PASSWORD = "admin123"
 
 # -----------------------
-# INIT DATABASE
+# INIT DB
 # -----------------------
 def init_db():
     conn = sqlite3.connect(DB)
     c = conn.cursor()
 
-    c.execute("""
-    CREATE TABLE IF NOT EXISTS categories (
-        id INTEGER PRIMARY KEY AUTOINCREMENT,
-        name TEXT UNIQUE
-    )
-    """)
-
-    c.execute("""
-    CREATE TABLE IF NOT EXISTS employees (
-        id INTEGER PRIMARY KEY AUTOINCREMENT,
-        name TEXT
-    )
-    """)
+    c.execute("""CREATE TABLE IF NOT EXISTS categories (name TEXT UNIQUE)""")
+    c.execute("""CREATE TABLE IF NOT EXISTS employees (name TEXT)""")
 
     c.execute("""
     CREATE TABLE IF NOT EXISTS assets (
-        id INTEGER PRIMARY KEY AUTOINCREMENT,
-        asset_id TEXT UNIQUE,
+        asset_id TEXT PRIMARY KEY,
         name TEXT,
         category TEXT,
         location TEXT,
         employee TEXT,
+        quantity INTEGER,
+        allocation_date TEXT,
         purchase_date TEXT,
         cost REAL,
+        status TEXT
+    )
+    """)
+
+    c.execute("""
+    CREATE TABLE IF NOT EXISTS maintenance (
+        asset_id TEXT,
+        date TEXT,
+        details TEXT,
+        replacement TEXT,
+        reason TEXT,
+        duration TEXT
+    )
+    """)
+
+    c.execute("""
+    CREATE TABLE IF NOT EXISTS audits (
+        asset_id TEXT,
+        month TEXT,
+        auditor TEXT,
         status TEXT
     )
     """)
@@ -53,216 +67,190 @@ def init_db():
 init_db()
 
 # -----------------------
-# DB HELPERS
+# HELPERS
 # -----------------------
-def get_categories():
-    conn = sqlite3.connect(DB)
-    df = pd.read_sql("SELECT name FROM categories", conn)
-    conn.close()
-    return df["name"].tolist()
-
-def add_category(name):
+def run_query(q, params=()):
     conn = sqlite3.connect(DB)
     c = conn.cursor()
-    try:
-        c.execute("INSERT INTO categories (name) VALUES (?)", (name,))
-        conn.commit()
-    except:
-        pass
-    conn.close()
-
-def get_employees():
-    conn = sqlite3.connect(DB)
-    df = pd.read_sql("SELECT name FROM employees", conn)
-    conn.close()
-    return df["name"].tolist()
-
-def add_employee(name):
-    conn = sqlite3.connect(DB)
-    c = conn.cursor()
-    c.execute("INSERT INTO employees (name) VALUES (?)", (name,))
+    c.execute(q, params)
     conn.commit()
     conn.close()
 
-def generate_asset_id(category):
+def fetch_df(q):
     conn = sqlite3.connect(DB)
-    c = conn.cursor()
-
-    prefix = "LSM" + category[:3].upper()
-
-    c.execute("SELECT asset_id FROM assets WHERE category=?", (category,))
-    ids = c.fetchall()
-
-    numbers = []
-    for i in ids:
-        try:
-            numbers.append(int(i[0].replace(prefix, "")))
-        except:
-            pass
-
-    next_num = max(numbers)+1 if numbers else 1
-
-    conn.close()
-    return f"{prefix}{str(next_num).zfill(2)}"
-
-def add_asset(name, category, location, employee, purchase_date, cost):
-    asset_id = generate_asset_id(category)
-
-    conn = sqlite3.connect(DB)
-    c = conn.cursor()
-
-    try:
-        c.execute("""
-        INSERT INTO assets (asset_id, name, category, location, employee, purchase_date, cost, status)
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?)
-        """, (asset_id, name, category, location, employee, purchase_date, cost, "Active"))
-
-        conn.commit()
-        return True, asset_id
-    except:
-        return False, None
-    finally:
-        conn.close()
-
-def get_assets():
-    conn = sqlite3.connect(DB)
-    df = pd.read_sql("SELECT * FROM assets", conn)
+    df = pd.read_sql(q, conn)
     conn.close()
     return df
 
-def delete_asset(asset_id):
-    conn = sqlite3.connect(DB)
-    c = conn.cursor()
-    c.execute("DELETE FROM assets WHERE asset_id=?", (asset_id,))
-    conn.commit()
-    conn.close()
+# -----------------------
+# ASSET ID
+# -----------------------
+def generate_asset_id():
+    df = fetch_df("SELECT asset_id FROM assets")
+    nums = [int(i.replace("LSM","")) for i in df["asset_id"]] if not df.empty else []
+    next_num = max(nums)+1 if nums else 1
+    return f"LSM{str(next_num).zfill(2)}"
+
+# -----------------------
+# BARCODE
+# -----------------------
+def generate_barcode(asset_id):
+    os.makedirs("barcodes", exist_ok=True)
+    code = barcode.get('code128', asset_id, writer=ImageWriter())
+    path = f"barcodes/{asset_id}"
+    code.save(path)
+    return path + ".png"
 
 # -----------------------
 # LOGIN
 # -----------------------
-if "logged_in" not in st.session_state:
-    st.session_state.logged_in = False
+if "login" not in st.session_state:
+    st.session_state.login = False
 
-if not st.session_state.logged_in:
+if not st.session_state.login:
     st.title("🔐 Admin Login")
-
-    pwd = st.text_input("Enter Password", type="password")
+    pwd = st.text_input("Password", type="password")
 
     if st.button("Login"):
         if pwd == ADMIN_PASSWORD:
-            st.session_state.logged_in = True
-            st.success("Login Successful")
+            st.session_state.login = True
             st.rerun()
         else:
             st.error("Wrong Password")
-
     st.stop()
 
 # -----------------------
 # HEADER
 # -----------------------
-st.markdown(
-    "<h1 style='text-align:center;color:#009249;'>Lingam Super Market Asset Management System</h1>",
-    unsafe_allow_html=True
-)
+st.markdown("<h1 style='text-align:center;color:#009249;'>Lingam Super Market Asset Management System</h1>", unsafe_allow_html=True)
 
-# -----------------------
-# SIDEBAR
-# -----------------------
 menu = st.sidebar.selectbox("Menu", [
     "Dashboard",
     "Add Category",
     "Add Employee",
     "Add Asset",
-    "View Assets"
+    "View Assets",
+    "Maintenance",
+    "Audit"
 ])
 
 # -----------------------
 # DASHBOARD
 # -----------------------
 if menu == "Dashboard":
-    st.subheader("📊 Overview")
-
-    df = get_assets()
-    col1, col2, col3 = st.columns(3)
-
-    col1.metric("Total Assets", len(df))
-    col2.metric("Active", len(df[df["status"]=="Active"]))
-    col3.metric("Employees", len(get_employees()))
+    df = fetch_df("SELECT * FROM assets")
+    st.metric("Total Assets", len(df))
 
 # -----------------------
 # CATEGORY
 # -----------------------
 elif menu == "Add Category":
-    st.subheader("📁 Add Category")
-
-    name = st.text_input("Category Name")
-
+    name = st.text_input("Category")
     if st.button("Add"):
-        add_category(name)
-        st.success("Category Added")
+        run_query("INSERT OR IGNORE INTO categories VALUES (?)", (name,))
+        st.success("Added")
 
 # -----------------------
 # EMPLOYEE
 # -----------------------
 elif menu == "Add Employee":
-    st.subheader("👨‍💼 Add Employee")
-
-    name = st.text_input("Employee Name")
-
+    name = st.text_input("Employee")
     if st.button("Add"):
-        add_employee(name)
-        st.success("Employee Added")
+        run_query("INSERT INTO employees VALUES (?)", (name,))
+        st.success("Added")
 
 # -----------------------
 # ADD ASSET
 # -----------------------
 elif menu == "Add Asset":
-    st.subheader("➕ Add Asset")
-
-    categories = get_categories()
-    employees = get_employees()
+    categories = fetch_df("SELECT name FROM categories")["name"].tolist()
+    employees = fetch_df("SELECT name FROM employees")["name"].tolist()
 
     name = st.text_input("Asset Name")
     category = st.selectbox("Category", categories)
     location = st.text_input("Location")
-    employee = st.selectbox("Assign to Employee", employees)
+    employee = st.selectbox("Assign Employee", employees)
+    quantity = st.number_input("Quantity", min_value=1)
+    allocation_date = st.date_input("Allocation Date")
     purchase_date = st.date_input("Purchase Date")
-    cost = st.number_input("Cost", min_value=0.0)
+    cost = st.number_input("Cost")
 
-    if st.button("Add Asset"):
-        success, asset_id = add_asset(name, category, location, employee, str(purchase_date), cost)
+    if st.button("Add"):
+        asset_id = generate_asset_id()
+        run_query("""
+        INSERT INTO assets VALUES (?,?,?,?,?,?,?,?,?,?)
+        """, (asset_id, name, category, location, employee, quantity, str(allocation_date), str(purchase_date), cost, "Active"))
 
-        if success:
-            st.success(f"Asset Added with ID: {asset_id}")
-        else:
-            st.error("Error adding asset")
+        st.success(f"Added: {asset_id}")
 
 # -----------------------
-# VIEW ASSETS
+# VIEW
 # -----------------------
 elif menu == "View Assets":
-    st.subheader("📋 Asset List")
+    df = fetch_df("SELECT * FROM assets")
+    st.dataframe(df)
 
-    df = get_assets()
-    st.dataframe(df, use_container_width=True)
+    # BARCODE VIEW
+    st.subheader("📌 Barcode Preview")
+    for i in df["asset_id"]:
+        path = generate_barcode(i)
+        st.image(path, caption=i, width=200)
 
-    # DELETE
-    st.subheader("🗑 Delete Asset")
-    asset_ids = df["asset_id"].tolist()
+    # EXPORT IDS
+    st.subheader("📥 Export Asset IDs")
 
-    selected = st.selectbox("Select Asset", asset_ids)
+    ids_df = df[["asset_id"]]
 
-    if st.button("Delete"):
-        delete_asset(selected)
-        st.success("Deleted Successfully")
-        st.rerun()
+    st.download_button("Download Excel", ids_df.to_csv(index=False), "asset_ids.csv")
 
-    # EXPORT
-    st.subheader("📥 Export Data")
+    # PDF
+    if st.button("Generate PDF"):
+        doc = SimpleDocTemplate("asset_ids.pdf")
+        styles = getSampleStyleSheet()
+        elements = []
 
-    if st.button("Download Excel"):
-        file = "assets_export.xlsx"
-        df.to_excel(file, index=False)
-        with open(file, "rb") as f:
-            st.download_button("Download File", f, file_name=file)
+        for i in ids_df["asset_id"]:
+            elements.append(Paragraph(i, styles["Normal"]))
+
+        doc.build(elements)
+
+        with open("asset_ids.pdf", "rb") as f:
+            st.download_button("Download PDF", f, "asset_ids.pdf")
+
+# -----------------------
+# MAINTENANCE
+# -----------------------
+elif menu == "Maintenance":
+    ids = fetch_df("SELECT asset_id FROM assets")["asset_id"].tolist()
+
+    asset_id = st.selectbox("Asset", ids)
+    details = st.text_area("Work Done")
+    replacement = st.text_input("Changed Component")
+    reason = st.text_input("Reason")
+    duration = st.text_input("Used Time / Duration")
+
+    if st.button("Submit"):
+        run_query("""
+        INSERT INTO maintenance VALUES (?,?,?,?,?,?)
+        """, (asset_id, str(datetime.now()), details, replacement, reason, duration))
+        st.success("Saved")
+
+# -----------------------
+# AUDIT
+# -----------------------
+elif menu == "Audit":
+    ids = fetch_df("SELECT asset_id FROM assets")["asset_id"].tolist()
+
+    asset_id = st.selectbox("Asset", ids)
+    month = st.selectbox("Month", [
+        "Jan","Feb","Mar","Apr","May","Jun",
+        "Jul","Aug","Sep","Oct","Nov","Dec"
+    ])
+    auditor = st.text_input("Auditor Name")
+    status = st.checkbox("Checked")
+
+    if st.button("Save"):
+        run_query("""
+        INSERT INTO audits VALUES (?,?,?,?)
+        """, (asset_id, month, auditor, str(status)))
+        st.success("Audit Saved")
