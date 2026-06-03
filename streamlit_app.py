@@ -24,7 +24,7 @@ body {
 
 /* 🖤 TEXT → BLACK (MAIN FIX) */
 h1, h2, h3, h4, h5, h6, p, label, div, span {
-    color: #ED5D04 !important;
+    color: #FC8625 !important;
 }
 h1 {
     color: unset !important;
