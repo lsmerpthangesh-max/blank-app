@@ -23,7 +23,7 @@ body {
 }
 
 /* 🖤 TEXT → BLACK (MAIN FIX) */
-h1, h2, h3, h4, h5, h6, p, label, div, span {
+h2, h3, h4, h5, h6, p, label, div, span {
     color: black !important;
 }
 
@@ -173,7 +173,7 @@ if not st.session_state.login:
 # -----------------------
 # HEADER
 # -----------------------
-st.markdown("<h1 style='text-align:center;'>Lingam Super Market Asset Management System</h1>", unsafe_allow_html=True)
+st.markdown("<h1 style='text-align:center;color:yellow;'>Lingam Super Market Asset Management System</h1>", unsafe_allow_html=True)
 
 menu = st.sidebar.selectbox("Menu", [
     "Dashboard",
