@@ -4,19 +4,36 @@ import pandas as pd
 from datetime import datetime
 import os
 import qrcode
-from reportlab.platypus import SimpleDocTemplate, Paragraph
-from reportlab.lib.styles import getSampleStyleSheet
 
 # -----------------------
-# CONFIG
+# CONFIG UI
 # -----------------------
 st.set_page_config(page_title="Lingam Super Market", layout="wide")
+
+# 🎨 CUSTOM STYLE
+st.markdown("""
+<style>
+body {
+    background-color: #009249;
+}
+h1, h2, h3, label, .stMetric {
+    color: yellow !important;
+}
+.stButton>button {
+    background-color: #009249;
+    color: yellow;
+}
+.block-container {
+    padding: 2rem;
+}
+</style>
+""", unsafe_allow_html=True)
 
 DB = "assets.db"
 ADMIN_PASSWORD = "admin123"
 
 # -----------------------
-# INIT DB
+# DB INIT
 # -----------------------
 def init_db():
     conn = sqlite3.connect(DB)
@@ -44,10 +61,7 @@ def init_db():
     CREATE TABLE IF NOT EXISTS maintenance (
         asset_id TEXT,
         date TEXT,
-        details TEXT,
-        replacement TEXT,
-        reason TEXT,
-        duration TEXT
+        details TEXT
     )
     """)
 
@@ -55,7 +69,6 @@ def init_db():
     CREATE TABLE IF NOT EXISTS audits (
         asset_id TEXT,
         month TEXT,
-        auditor TEXT,
         status TEXT
     )
     """)
@@ -81,18 +94,12 @@ def fetch_df(q):
     conn.close()
     return df
 
-# -----------------------
-# ASSET ID
-# -----------------------
 def generate_asset_id():
     df = fetch_df("SELECT asset_id FROM assets")
     nums = [int(i.replace("LSM","")) for i in df["asset_id"]] if not df.empty else []
     next_num = max(nums)+1 if nums else 1
     return f"LSM{str(next_num).zfill(2)}"
 
-# -----------------------
-# QR CODE
-# -----------------------
 def generate_qr(asset_id):
     os.makedirs("qr_codes", exist_ok=True)
     path = f"qr_codes/{asset_id}.png"
@@ -121,7 +128,7 @@ if not st.session_state.login:
 # -----------------------
 # HEADER
 # -----------------------
-st.markdown("<h1 style='text-align:center;color:#009249;'>Lingam Super Market Asset Management System</h1>", unsafe_allow_html=True)
+st.markdown("<h1 style='text-align:center;'>Lingam Super Market Asset Management System</h1>", unsafe_allow_html=True)
 
 menu = st.sidebar.selectbox("Menu", [
     "Dashboard",
@@ -137,11 +144,55 @@ menu = st.sidebar.selectbox("Menu", [
 # DASHBOARD
 # -----------------------
 if menu == "Dashboard":
+    st.subheader("📊 Dashboard")
+
     df = fetch_df("SELECT * FROM assets")
-    st.metric("Total Assets", len(df))
+    maint = fetch_df("SELECT * FROM maintenance")
+    audit = fetch_df("SELECT * FROM audits")
+
+    col1, col2, col3, col4 = st.columns(4)
+
+    total = len(df)
+    damaged = len(df[df["status"]=="Damaged"])
+    maintenance_count = len(maint)
+    checked = len(audit[audit["status"]=="True"])
+    not_checked = len(df) - checked
+
+    col1.metric("📦 Total Assets", total)
+    col2.metric("❌ Damaged", damaged)
+    col3.metric("🛠 Maintenance", maintenance_count)
+    col4.metric("✅ Checked", checked)
+
+    st.metric("⚠ Not Checked", not_checked)
+
+    # ALERT
+    today = datetime.now().day
+    if today > 25:
+        st.warning("⚠ Month End Audit Pending!")
+
+    # DATE FILTER
+    st.subheader("📅 Filter")
+    start = st.date_input("From")
+    end = st.date_input("To")
+
+    if start and end:
+        df["purchase_date"] = pd.to_datetime(df["purchase_date"])
+        filtered = df[(df["purchase_date"]>=pd.to_datetime(start)) &
+                      (df["purchase_date"]<=pd.to_datetime(end))]
+        st.dataframe(filtered)
+
+    # EXPORT FULL DASHBOARD
+    if st.button("📥 Download Full Report"):
+        with pd.ExcelWriter("dashboard.xlsx") as writer:
+            df.to_excel(writer, sheet_name="Assets", index=False)
+            maint.to_excel(writer, sheet_name="Maintenance", index=False)
+            audit.to_excel(writer, sheet_name="Audit", index=False)
+
+        with open("dashboard.xlsx","rb") as f:
+            st.download_button("Download", f, "dashboard.xlsx")
 
 # -----------------------
-# CATEGORY
+# ADD CATEGORY
 # -----------------------
 elif menu == "Add Category":
     name = st.text_input("Category")
@@ -149,14 +200,20 @@ elif menu == "Add Category":
         run_query("INSERT OR IGNORE INTO categories VALUES (?)", (name,))
         st.success("Added")
 
+    st.subheader("📋 View")
+    st.dataframe(fetch_df("SELECT * FROM categories"))
+
 # -----------------------
-# EMPLOYEE
+# ADD EMPLOYEE
 # -----------------------
 elif menu == "Add Employee":
     name = st.text_input("Employee")
     if st.button("Add"):
         run_query("INSERT INTO employees VALUES (?)", (name,))
         st.success("Added")
+
+    st.subheader("📋 View")
+    st.dataframe(fetch_df("SELECT * FROM employees"))
 
 # -----------------------
 # ADD ASSET
@@ -168,50 +225,28 @@ elif menu == "Add Asset":
     name = st.text_input("Asset Name")
     category = st.selectbox("Category", categories)
     location = st.text_input("Location")
-    employee = st.selectbox("Assign Employee", employees)
-    quantity = st.number_input("Quantity", min_value=1)
-    allocation_date = st.date_input("Allocation Date")
-    purchase_date = st.date_input("Purchase Date")
-    cost = st.number_input("Cost")
+    employee = st.selectbox("Employee", employees)
+    qty = st.number_input("Quantity", min_value=1)
+    purchase = st.date_input("Purchase Date")
 
     if st.button("Add"):
         asset_id = generate_asset_id()
         run_query("""
         INSERT INTO assets VALUES (?,?,?,?,?,?,?,?,?,?)
-        """, (asset_id, name, category, location, employee, quantity,
-              str(allocation_date), str(purchase_date), cost, "Active"))
-
-        st.success(f"Added: {asset_id}")
+        """, (asset_id, name, category, location, employee, qty,
+              str(datetime.now()), str(purchase), 0, "Active"))
+        st.success(f"Added {asset_id}")
 
 # -----------------------
-# VIEW
+# VIEW ASSETS
 # -----------------------
 elif menu == "View Assets":
     df = fetch_df("SELECT * FROM assets")
     st.dataframe(df)
 
-    st.subheader("📌 QR Code Preview")
+    st.subheader("📌 QR View")
     for i in df["asset_id"]:
-        path = generate_qr(i)
-        st.image(path, caption=i, width=150)
-
-    st.subheader("📥 Export Asset IDs")
-    ids_df = df[["asset_id"]]
-
-    st.download_button("Download Excel", ids_df.to_csv(index=False), "asset_ids.csv")
-
-    if st.button("Generate PDF"):
-        doc = SimpleDocTemplate("asset_ids.pdf")
-        styles = getSampleStyleSheet()
-        elements = []
-
-        for i in ids_df["asset_id"]:
-            elements.append(Paragraph(i, styles["Normal"]))
-
-        doc.build(elements)
-
-        with open("asset_ids.pdf", "rb") as f:
-            st.download_button("Download PDF", f, "asset_ids.pdf")
+        st.image(generate_qr(i), width=120)
 
 # -----------------------
 # MAINTENANCE
@@ -220,16 +255,15 @@ elif menu == "Maintenance":
     ids = fetch_df("SELECT asset_id FROM assets")["asset_id"].tolist()
 
     asset_id = st.selectbox("Asset", ids)
-    details = st.text_area("Work Done")
-    replacement = st.text_input("Changed Component")
-    reason = st.text_input("Reason")
-    duration = st.text_input("Used Time / Duration")
+    details = st.text_area("Details")
 
-    if st.button("Submit"):
-        run_query("""
-        INSERT INTO maintenance VALUES (?,?,?,?,?,?)
-        """, (asset_id, str(datetime.now()), details, replacement, reason, duration))
+    if st.button("Save"):
+        run_query("INSERT INTO maintenance VALUES (?,?,?)",
+                  (asset_id, str(datetime.now()), details))
         st.success("Saved")
+
+    st.subheader("📋 View")
+    st.dataframe(fetch_df("SELECT * FROM maintenance"))
 
 # -----------------------
 # AUDIT
@@ -238,15 +272,14 @@ elif menu == "Audit":
     ids = fetch_df("SELECT asset_id FROM assets")["asset_id"].tolist()
 
     asset_id = st.selectbox("Asset", ids)
-    month = st.selectbox("Month", [
-        "Jan","Feb","Mar","Apr","May","Jun",
-        "Jul","Aug","Sep","Oct","Nov","Dec"
-    ])
-    auditor = st.text_input("Auditor Name")
+    month = st.selectbox("Month", ["Jan","Feb","Mar","Apr","May","Jun",
+                                  "Jul","Aug","Sep","Oct","Nov","Dec"])
     status = st.checkbox("Checked")
 
     if st.button("Save"):
-        run_query("""
-        INSERT INTO audits VALUES (?,?,?,?)
-        """, (asset_id, month, auditor, str(status)))
-        st.success("Audit Saved")
+        run_query("INSERT INTO audits VALUES (?,?,?)",
+                  (asset_id, month, str(status)))
+        st.success("Saved")
+
+    st.subheader("📋 View")
+    st.dataframe(fetch_df("SELECT * FROM audits"))
