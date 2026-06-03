@@ -19,7 +19,7 @@ body {
     background-color: #009249;
 }
 .block-container {
-    background-color: #009249;
+    background-color: white;
 }
 
 /* 🖤 TEXT → BLACK (MAIN FIX) */
