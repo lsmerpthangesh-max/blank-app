@@ -12,8 +12,10 @@ st.set_page_config(page_title="Lingam Super Market", layout="wide")
 
 # 🎨 CUSTOM STYLE
 st.markdown("""
+st.markdown("""
 <style>
-/* 🌿 Full App Background */
+
+/* 🌿 App Background */
 body {
     background-color: #009249;
 }
@@ -24,9 +26,14 @@ body {
     padding: 2rem;
 }
 
-/* 🌿 Text styling */
-h1, h2, h3, h4, h5, h6, p, label, div, span {
+/* 🌿 Headings (VISIBLE) */
+h1, h2, h3, h4 {
     color: white !important;
+}
+
+/* 🌿 Normal text */
+p, label, span {
+    color: black !important;
 }
 
 /* 🌿 Sidebar */
@@ -37,28 +44,31 @@ h1, h2, h3, h4, h5, h6, p, label, div, span {
     color: white !important;
 }
 
+/* 🌿 Dropdown / Selectbox TEXT FIX */
+.stSelectbox div {
+    color: black !important;
+    background-color: #e6f5ec !important;
+}
+
+/* 🌿 Input fields */
+.stTextInput input,
+.stNumberInput input,
+.stDateInput input {
+    color: black !important;
+    background-color: #e6f5ec !important;
+}
+
 /* 🌿 Buttons */
 .stButton > button {
     background-color: #006d33;
     color: white;
     border-radius: 8px;
-    border: none;
-    padding: 8px 16px;
-}
-
-/* 🌿 Input boxes */
-.stTextInput input,
-.stNumberInput input,
-.stDateInput input,
-.stSelectbox div {
-    background-color: #e6f5ec;
-    color: black;
-    border-radius: 6px;
 }
 
 /* 🌿 Dataframe */
 [data-testid="stDataFrame"] {
     background-color: white;
+    color: black;
 }
 
 /* 🌿 Metric cards */
@@ -72,7 +82,12 @@ h1, h2, h3, h4, h5, h6, p, label, div, span {
 /* 🌿 Alerts */
 .stAlert {
     background-color: #004d26;
-    color: white;
+    color: yellow;
+}
+
+/* 🌿 Fix dropdown selected text (IMPORTANT) */
+div[data-baseweb="select"] span {
+    color: black !important;
 }
 
 </style>
