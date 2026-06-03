@@ -16,10 +16,10 @@ st.markdown("""
 
 /* 🌿 Background */
 body {
-    background-color: #009249;
+    background-color: white ;
 }
 .block-container {
-    background-color: white;
+    background-color:#009249;
 }
 
 /* 🖤 TEXT → BLACK (MAIN FIX) */
