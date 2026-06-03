@@ -3,8 +3,7 @@ import sqlite3
 import pandas as pd
 from datetime import datetime
 import os
-import barcode
-from barcode.writer import ImageWriter
+import qrcode
 from reportlab.platypus import SimpleDocTemplate, Paragraph
 from reportlab.lib.styles import getSampleStyleSheet
 
@@ -23,8 +22,8 @@ def init_db():
     conn = sqlite3.connect(DB)
     c = conn.cursor()
 
-    c.execute("""CREATE TABLE IF NOT EXISTS categories (name TEXT UNIQUE)""")
-    c.execute("""CREATE TABLE IF NOT EXISTS employees (name TEXT)""")
+    c.execute("CREATE TABLE IF NOT EXISTS categories (name TEXT UNIQUE)")
+    c.execute("CREATE TABLE IF NOT EXISTS employees (name TEXT)")
 
     c.execute("""
     CREATE TABLE IF NOT EXISTS assets (
@@ -92,14 +91,14 @@ def generate_asset_id():
     return f"LSM{str(next_num).zfill(2)}"
 
 # -----------------------
-# BARCODE
+# QR CODE
 # -----------------------
-def generate_barcode(asset_id):
-    os.makedirs("barcodes", exist_ok=True)
-    code = barcode.get('code128', asset_id, writer=ImageWriter())
-    path = f"barcodes/{asset_id}"
-    code.save(path)
-    return path + ".png"
+def generate_qr(asset_id):
+    os.makedirs("qr_codes", exist_ok=True)
+    path = f"qr_codes/{asset_id}.png"
+    qr = qrcode.make(asset_id)
+    qr.save(path)
+    return path
 
 # -----------------------
 # LOGIN
@@ -179,7 +178,8 @@ elif menu == "Add Asset":
         asset_id = generate_asset_id()
         run_query("""
         INSERT INTO assets VALUES (?,?,?,?,?,?,?,?,?,?)
-        """, (asset_id, name, category, location, employee, quantity, str(allocation_date), str(purchase_date), cost, "Active"))
+        """, (asset_id, name, category, location, employee, quantity,
+              str(allocation_date), str(purchase_date), cost, "Active"))
 
         st.success(f"Added: {asset_id}")
 
@@ -190,20 +190,16 @@ elif menu == "View Assets":
     df = fetch_df("SELECT * FROM assets")
     st.dataframe(df)
 
-    # BARCODE VIEW
-    st.subheader("📌 Barcode Preview")
+    st.subheader("📌 QR Code Preview")
     for i in df["asset_id"]:
-        path = generate_barcode(i)
-        st.image(path, caption=i, width=200)
+        path = generate_qr(i)
+        st.image(path, caption=i, width=150)
 
-    # EXPORT IDS
     st.subheader("📥 Export Asset IDs")
-
     ids_df = df[["asset_id"]]
 
     st.download_button("Download Excel", ids_df.to_csv(index=False), "asset_ids.csv")
 
-    # PDF
     if st.button("Generate PDF"):
         doc = SimpleDocTemplate("asset_ids.pdf")
         styles = getSampleStyleSheet()
