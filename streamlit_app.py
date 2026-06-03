@@ -13,19 +13,64 @@ st.set_page_config(page_title="Lingam Super Market", layout="wide")
 # 🎨 CUSTOM STYLE
 st.markdown("""
 <style>
+
+/* 🌿 Background */
 body {
     background-color: #009249;
 }
-h1, h2, h3, label, .stMetric {
-    color: yellow !important;
-}
-.stButton>button {
-    background-color: #009249;
-    color: yellow;
-}
 .block-container {
-    padding: 2rem;
+    background-color: #009249;
 }
+
+/* 🖤 TEXT → BLACK (MAIN FIX) */
+h1, h2, h3, h4, h5, h6, p, label, div, span {
+    color: black !important;
+}
+
+/* 🌿 Sidebar */
+[data-testid="stSidebar"] {
+    background-color: #007a3a;
+}
+[data-testid="stSidebar"] * {
+    color: black !important;
+}
+
+/* 🔘 Buttons */
+.stButton > button {
+    background-color: #006d33;
+    color: white;
+    border-radius: 8px;
+}
+
+/* 📝 Inputs */
+.stTextInput input,
+.stNumberInput input,
+.stDateInput input,
+.stSelectbox div {
+    background-color: #e6f5ec;
+    color: black;
+}
+
+/* 📊 Dataframe */
+[data-testid="stDataFrame"] {
+    background-color: white;
+    color: black;
+}
+
+/* 📊 Metrics */
+[data-testid="stMetric"] {
+    background-color: #006d33;
+    padding: 10px;
+    border-radius: 10px;
+    color: white;
+}
+
+/* ⚠ Alerts */
+.stAlert {
+    background-color: #004d26;
+    color: white;
+}
+
 </style>
 """, unsafe_allow_html=True)
 
